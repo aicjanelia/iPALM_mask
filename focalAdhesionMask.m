@@ -11,13 +11,14 @@
 %     (Import User ASCII, make sure to check box for headers, copy tab
 %     deliminted 0:48 into the columns, xy coords in pixels)
 
-clc, clear, close all % Start with a clean workspace
+clc, clear%, close all % Start with a clean workspace
 t.start = datetime('now'); % Measure how long pieces of this script take
 % Can use `between` to measure times. To see total run time use:
 % between(t.start,t.scriptFinished)
 
 % Change Log
 % RML 2022-03-15 focalAdhesionMask inspired by beadRemoval_v0_anisotropic
+% RML 2022-03-16 stricter masking, save two versions of txt file
 
 %% USER PARAMETERS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Add full paths to relevant files
@@ -26,9 +27,9 @@ adhesionsFile = [mainDir 'pax\pax_c3.dat'];
 asciiFile = [mainDir 'Run1-561\Run1-561_c123_sum_X14_processed_purged_IDL_ASCII_beadsRemoved_rRemoveX3_rRemoveY7.txt'];
 
 % Thresholding
-threshStrength = .8; % What fraction of an Otsu threshold to use --> lower is a more generous thresholding that will include more edge cases
+threshStrength = .9; % What fraction of an Otsu threshold to use --> lower is a more generous thresholding that will include more edge cases
 minSize = 15; % Minimum size of a feature that is relevant (pixels^2)
-dilateSize = 1; % Increasing the size of dilateSize will add extra regions around the focal adhesions that are included
+% dilateSize = 1; % Increasing the size of dilateSize will add extra regions around the focal adhesions that are included
 
 %% Data Loading
 
@@ -57,7 +58,7 @@ T = graythresh(imThresh); % Otsu threshold
 BW = imbinarize(imThresh,threshStrength*T); % Apply threshold with a strength factor
 
 BW = bwareaopen(BW, minSize); % Remove small objects
-BW = imdilate(BW,strel('disk',dilateSize));
+% BW = imdilate(BW,strel('disk',dilateSize));
 
 figure(1)
 set(gcf,'Position',[400 200 800 1000]) % Get a good rough starting point for viewing this figure
@@ -91,9 +92,19 @@ title('Localizations')
 
 asciiKeep = ascii(bwInd,:);
 
+t.processingFinished = datetime('now');
+
 %% Save Work
 T = array2table(asciiKeep,'VariableNames',headers);
 writetable(T,[asciiFile(1:end-4) '_masked.txt'],'delimiter','\t')
+
+% Make a 2 channel version
+asciiKeep(:,27) = 2;
+ascii(:,27) = 1;
+asciiWrite = [ascii ; asciiKeep];
+
+T = array2table(asciiWrite,'VariableNames',headers);
+writetable(T,[asciiFile(1:end-4) '_mask2ndChannel.txt'],'delimiter','\t')
 
 disp('Processing Completed')
 t.scriptFinished = datetime('now');
